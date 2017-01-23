@@ -6,7 +6,7 @@ Created on Fri Jan 20 22:19:29 2017
 @author: harik
 """
 
-''''
+""""
     model architecture
     ------------------
     # inputs
@@ -26,7 +26,7 @@ Created on Fri Jan 20 22:19:29 2017
         - fc1
         - relu4
         - softmax[1:5]
-''''
+"""
 
 #%%
 
