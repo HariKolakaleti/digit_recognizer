@@ -273,5 +273,5 @@ for step in range(num_steps):
         
     # train
     sess.run(train_step, feed_dict=train_data)
-    
-print (test)
+
+print (hello)
