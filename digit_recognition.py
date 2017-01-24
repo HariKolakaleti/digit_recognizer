@@ -41,8 +41,8 @@ from IPython.display import display
 #%%
 
 # mnist dataset
-from tensorflow.examples.tutorials.mnist import input_data
-mnist = input_data.read_data_sets('MNIST_data', one_hot=True) 
+#from tensorflow.examples.tutorials.mnist import input_data
+#mnist = input_data.read_data_sets('MNIST_data', one_hot=True) 
 
 #%%
 
@@ -86,7 +86,7 @@ display_samples()
 #%%
 
 # params
-batch_size = 100       # batch size
+batch_size = 1         # batch size
 img_size   = 32        # image size 32x32
 in_chan    = 1         # grey scale
 
@@ -125,153 +125,176 @@ fc_nodes   = 64        # hidden layer
 
 # output
 out_digits = 6         # up to 5 digits [1-5]
-out_labels = 10        # 10 (detect 0-9)
-
-# global
-
-#%%
-
-# procs init_weight, init_bias
-
-def init_weight(name, shape, init='conv2d'):
-    if init == 'conv2d':
-        initializer = tf.contrib.layers.xavier_initializer_conv2d()
-    else:
-        initializer = tf.contrib.layers.xavier_initializer()
-    return tf.get_variable(shape=shape, name=name, initializer=initializer)
-
-    
-def init_bias(name, shape):
-    return tf.Variable(tf.constant(1.0, shape=shape), name=name)
-
-#%%
-
-# input, output placeholders
-X = tf.placeholder(tf.float32, shape=[batch_size, img_size, img_size, in_chan])
-Y = tf.placeholder(tf.int32, shape=[batch_size, out_digits])
-
-# conv,fc: bias, weights
-b_C1 = init_bias(name='b_C1', shape=[c1_depth])
-b_C2 = init_bias(name='b_C2', shape=[c2_depth])
-b_C3 = init_bias(name='b_C3', shape=[c3_depth])
-b_FC = init_bias(name='b_FC', shape=[fc_nodes])
-
-W_C1 = init_weight(name='W_C1', shape=[c1_patch, c1_patch, in_chan, c1_depth])
-W_C2 = init_weight(name='W_C2', shape=[c2_patch, c2_patch, c1_depth, c2_depth])
-W_C3 = init_weight(name='W_C3', shape=[c3_patch, c3_patch, c2_depth, c3_depth])
-W_FC = init_weight(name='W_FC', shape=[c3_depth, fc_nodes])
-
-# output: bias, weights
-b_Y1 = init_bias(name='b_Y1', shape=[out_labels])
-b_Y2 = init_bias(name='b_Y2', shape=[out_labels])
-b_Y3 = init_bias(name='b_Y3', shape=[out_labels])
-b_Y4 = init_bias(name='b_Y4', shape=[out_labels])
-b_Y5 = init_bias(name='b_Y5', shape=[out_labels])
-b_Y  = [None, b_Y1, b_Y2, b_Y3, b_Y4, b_Y5]
-
-W_Y1 = init_weight(name='W_Y1', shape=[fc_nodes, out_labels])
-W_Y2 = init_weight(name='W_Y2', shape=[fc_nodes, out_labels])
-W_Y3 = init_weight(name='W_Y3', shape=[fc_nodes, out_labels])
-W_Y4 = init_weight(name='W_Y4', shape=[fc_nodes, out_labels])
-W_Y5 = init_weight(name='W_Y5', shape=[fc_nodes, out_labels])
-W_Y  = [None, W_Y1, W_Y2, W_Y3, W_Y4, W_Y5]
-
+out_labels = 11        # 10 (detect 0-9)
 
 #%%
 
 # cnn model architecture
 
-# layer 1
-c1_out = tf.nn.conv2d(X, W_C1, c1_stride, padding=c1_padding)
-r1_out = tf.nn.relu(c1_out + b_C1)
-p1_out = tf.nn.max_pool(r1_out, p1_patch, p1_stride, padding=p1_padding)
+graph = tf.Graph()
 
-# layer 2
-c2_out = tf.nn.conv2d(p1_out, W_C2, c2_stride, padding=c2_padding)
-r2_out = tf.nn.relu(c2_out + b_C2)
-p2_out = tf.nn.max_pool(r2_out, p2_patch, p2_stride, padding=p2_padding)
+with graph.as_default():
+    
+    def init_weight(name, shape, init='conv2d'):
+        if init == 'conv2d':
+            initializer = tf.contrib.layers.xavier_initializer_conv2d()
+        else:
+            initializer = tf.contrib.layers.xavier_initializer()
+        return tf.get_variable(shape=shape, name=name, initializer=initializer)
+                
+    def init_bias(name, shape):
+        return tf.Variable(tf.constant(1.0, shape=shape), name=name)
 
-# layer 3
-c3_out = tf.nn.conv2d(p2_out, W_C3, c3_stride, padding=c3_padding)
-r3_out = tf.nn.relu(c3_out + b_C3)
-d1_out = tf.nn.dropout(r3_out, keep_prob)
+    X = tf.placeholder(tf.float32, shape=[batch_size, img_size, img_size, in_chan])
+    Y = tf.placeholder(tf.int32, shape=[batch_size, out_digits])
 
-# fc layer (reshape)
-shape   = d1_out.get_shape().as_list()
-reshape = tf.reshape(d1_out, [shape[0], shape[1] * shape[2] * shape[3]])
-fc_out  = tf.nn.relu(tf.matmul(reshape, W_FC) + b_FC)
+    tf_test_dataset = tf.constant(X_test)
 
-# output layer
-for i in range(out_digits):
-    y1 = tf.matmul(fc_out, W_Y[1]) + b_Y[1]
-    y2 = tf.matmul(fc_out, W_Y[2]) + b_Y[2]
-    y3 = tf.matmul(fc_out, W_Y[3]) + b_Y[3]
-    y4 = tf.matmul(fc_out, W_Y[4]) + b_Y[4]
-    y5 = tf.matmul(fc_out, W_Y[5]) + b_Y[5]
-    y  = [None, y1, y2, y3, y4, y5]
+    b_C1 = init_bias(name='b_C1', shape=[c1_depth])
+    b_C2 = init_bias(name='b_C2', shape=[c2_depth])
+    b_C3 = init_bias(name='b_C3', shape=[c3_depth])
+    b_FC = init_bias(name='b_FC', shape=[fc_nodes])
+        
+    W_C1 = init_weight(name='W_C1', shape=[c1_patch, c1_patch, in_chan,  c1_depth])
+    W_C2 = init_weight(name='W_C2', shape=[c2_patch, c2_patch, c1_depth, c2_depth])
+    W_C3 = init_weight(name='W_C3', shape=[c3_patch, c3_patch, c2_depth, c3_depth])
+    W_FC = init_weight(name='W_FC', shape=[c3_depth, fc_nodes])
+        
+    b_Y1 = init_bias(name='b_Y1', shape=[out_labels])
+    b_Y2 = init_bias(name='b_Y2', shape=[out_labels])
+    b_Y3 = init_bias(name='b_Y3', shape=[out_labels])
+    b_Y4 = init_bias(name='b_Y4', shape=[out_labels])
+    b_Y5 = init_bias(name='b_Y5', shape=[out_labels])
+    b_Y  = [b_Y1, b_Y2, b_Y3, b_Y4, b_Y5]
+        
+    W_Y1 = init_weight(name='W_Y1', shape=[fc_nodes, out_labels])
+    W_Y2 = init_weight(name='W_Y2', shape=[fc_nodes, out_labels])
+    W_Y3 = init_weight(name='W_Y3', shape=[fc_nodes, out_labels])
+    W_Y4 = init_weight(name='W_Y4', shape=[fc_nodes, out_labels])
+    W_Y5 = init_weight(name='W_Y5', shape=[fc_nodes, out_labels])
+    W_Y  = [W_Y1, W_Y2, W_Y3, W_Y4, W_Y5]
+
+    def model(X, keep_prob):
+        with tf.name_scope('layer_1'):
+            c1_out = tf.nn.conv2d(X, W_C1, c1_stride, padding=c1_padding)
+            r1_out = tf.nn.relu(c1_out + b_C1)
+            p1_out = tf.nn.max_pool(r1_out, p1_patch, p1_stride, padding=p1_padding)
+        
+        with tf.name_scope('layer_2'):
+            c2_out = tf.nn.conv2d(p1_out, W_C2, c2_stride, padding=c2_padding)
+            r2_out = tf.nn.relu(c2_out + b_C2)
+            p2_out = tf.nn.max_pool(r2_out, p2_patch, p2_stride, padding=p2_padding)
+        
+        with tf.name_scope('layer_3'):
+            c3_out = tf.nn.conv2d(p2_out, W_C3, c3_stride, padding=c3_padding)
+            r3_out = tf.nn.relu(c3_out + b_C3)
+            d1_out = tf.nn.dropout(r3_out, keep_prob)
+        
+        with tf.name_scope('fc_layer'):
+            shape   = d1_out.get_shape().as_list()
+            reshape = tf.reshape(d1_out, [shape[0], shape[1] * shape[2] * shape[3]])
+            fc_out  = tf.nn.relu(tf.matmul(reshape, W_FC) + b_FC)
+        
+        with tf.name_scope('softmax'):                
+            y1 = tf.matmul(fc_out, W_Y[0]) + b_Y[0]
+            y2 = tf.matmul(fc_out, W_Y[1]) + b_Y[1]
+            y3 = tf.matmul(fc_out, W_Y[2]) + b_Y[2]
+            y4 = tf.matmul(fc_out, W_Y[3]) + b_Y[3]
+            y5 = tf.matmul(fc_out, W_Y[4]) + b_Y[4]
+            
+        return [y1, y2, y3, y4, y5]
+
+    [y1, y2, y3, y4, y5] = model(X, keep_prob)
+
+    with tf.name_scope("cross_entropy"):        
+        cross_entropy = \
+            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y1, Y[:, 1])) + \
+            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y2, Y[:, 2])) + \
+            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y3, Y[:, 3])) + \
+            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y4, Y[:, 4])) + \
+            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y5, Y[:, 5]))
+        tf.summary.scalar("cross_entropy", cross_entropy)
+
+    # optimizer
+    alpha = 0.05; 
+    global_step = tf.Variable(0)
+    learning_rate = tf.train.exponential_decay(alpha, global_step, 10000, 0.96)
+            
+    optimizer  = tf.train.AdagradOptimizer(learning_rate)
+    train_step = optimizer.minimize(cross_entropy, global_step=global_step)
+
+    def softmax_combine(X):
+        train_pred = tf.pack([
+            tf.nn.softmax(model(X, 1.0)[0]),
+            tf.nn.softmax(model(X, 1.0)[1]),
+            tf.nn.softmax(model(X, 1.0)[2]),
+            tf.nn.softmax(model(X, 1.0)[3]),
+            tf.nn.softmax(model(X, 1.0)[4])])
+        return train_pred
+
+    train_pred = softmax_combine(X)
+    test_pred  = softmax_combine(tf_test_dataset)
+
+    '''Save Model (will be initiated later)'''
+    saver = tf.train.Saver()
+
+    # weight histogram
+    tf.summary.histogram("W_C1", W_C1)
+    tf.summary.histogram("W_C2", W_C2)
+    tf.summary.histogram("W_C3", W_C3)
+    tf.summary.histogram("W_FC", W_FC)
+    tf.summary.histogram("W_Y1", W_Y1)
+    tf.summary.histogram("W_Y2", W_Y2)
+    tf.summary.histogram("W_Y3", W_Y3)
+    tf.summary.histogram("W_Y4", W_Y4)
+    tf.summary.histogram("W_Y5", W_Y5)
+
+    tf.summary.histogram("b_C1", b_C1)
+    tf.summary.histogram("b_C2", b_C2)
+    tf.summary.histogram("b_C3", b_C3)
+    tf.summary.histogram("b_FC", b_FC)
+    tf.summary.histogram("b_Y1", b_Y1)
+    tf.summary.histogram("b_Y2", b_Y2)
+    tf.summary.histogram("b_Y3", b_Y3)
+    tf.summary.histogram("b_Y4", b_Y4)
+    tf.summary.histogram("b_Y5", b_Y5)
+
+    print('Graph done!')
 
 #%%
 
-# loss function (use cross entropy)
-
-loss1 = tf.nn.sparse_softmax_cross_entropy_with_logits(y[1], Y[:, 1])
-loss2 = tf.nn.sparse_softmax_cross_entropy_with_logits(y[2], Y[:, 2])
-loss3 = tf.nn.sparse_softmax_cross_entropy_with_logits(y[3], Y[:, 3])
-loss4 = tf.nn.sparse_softmax_cross_entropy_with_logits(y[4], Y[:, 4])
-loss5 = tf.nn.sparse_softmax_cross_entropy_with_logits(y[5], Y[:, 5])
-
-cross_entropy = tf.reduce_mean(loss1) + \
-                tf.reduce_mean(loss2) + \
-                tf.reduce_mean(loss4) + \
-                tf.reduce_mean(loss5)
-
-#%%
-
-is_correct = tf.equal(tf.argmax(y[1], 1), tf.argmax(Y[:, 1], 1)) & \
-             tf.equal(tf.argmax(y[2], 1), tf.argmax(Y[:, 2], 1)) & \
-             tf.equal(tf.argmax(y[3], 1), tf.argmax(Y[:, 3], 1)) & \
-             tf.equal(tf.argmax(y[4], 1), tf.argmax(Y[:, 4], 1)) & \
-             tf.equal(tf.argmax(y[5], 1), tf.argmax(Y[:, 5], 1))
-
-accuracy   = tf.reduce_mean(tf.cast(is_correct, tf.float32))
-
-#%%
-
-# optimizer
-
-alpha = 0.05
-global_step = tf.Variable(0)
-learning_rate = tf.train.exponential_decay(alpha, global_step, 10000, 0.96)
-
-optimizer  = tf.train.AdagradOptimizer(learning_rate)
-train_step = optimizer.minimize(cross_entropy, global_step=global_step)
-
-#%%
-
-# compute offset 
+def accuracy(predictions, labels):
+    return (100.0 * np.sum(np.argmax(predictions, 2).T == labels)
+            / predictions.shape[1] / predictions.shape[0])
 
 def get_offset(step, batch_size, data):
     offset = (step * batch_size) % (data.shape[0] - batch_size)
     return offset
+
+with tf.Session(graph=graph) as sess:
+    writer = tf.summary.FileWriter("log", sess.graph)
+    merged = tf.summary.merge_all()
+
+    sess.run(tf.global_variables_initializer())
     
-#%% 
+    num_steps = 2
+    for step in range(num_steps):
+        offset  = get_offset(step, batch_size, y_train)
+        batch_X = X_train[offset:(offset + batch_size), :, :, :]
+        batch_Y = y_train[offset:(offset + batch_size), :]
+        train_data = {X: batch_X, Y: batch_Y}
+        _, l, pred, summary = sess.run([train_step, cross_entropy, train_pred, merged], feed_dict=train_data)
 
-# session 
+        writer.add_summary(summary)
+        if (step % 500 == 0):
+            print(('Minibatch loss at step {}: {}').format(step, l))
+            print(('Minibatch accuracy: {}%'.format(accuracy(pred, batch_Y[:,1:6]))))
 
-num_steps = 2
-init = tf.global_variables_initializer()
+    print(
+    ('Test accuracy: {}%'.format(accuracy(test_pred.eval(), y_test[:,1:6]))))
 
-sess = tf.Session()
-sess.run(init)
+    save_path = saver.save(sess, "digit_recognizer.ckpt")
+    print('Model saved to file: {}'.format(save_path))
 
-for step in range(num_steps):
-    # load batch of images & labels
-    offset  = get_offset(step, batch_size, y_train)
-    batch_X = X_train[offset:(offset + batch_size), :, :, :]
-    batch_Y = y_train[offset:(offset + batch_size), :]
-    train_data = {X: batch_X, Y: batch_Y}
-        
-    # train
-    sess.run(train_step, feed_dict=train_data)
 
-print (hello)
+print('Tensorboard: tensorboard --logdir=log')
