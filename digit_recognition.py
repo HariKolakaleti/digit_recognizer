@@ -125,8 +125,7 @@ fc_nodes   = 64        # hidden layer
 
 # output
 out_digits = 6         # up to 5 digits [1-5]
-out_labels = 10        # 10 (detect 0-9)
-
+out_labels = 11        # 10 (detect 0-9)
 
 #%%
 
@@ -148,6 +147,8 @@ with graph.as_default():
 
     X = tf.placeholder(tf.float32, shape=[batch_size, img_size, img_size, in_chan])
     Y = tf.placeholder(tf.int32, shape=[batch_size, out_digits])
+
+    tf_test_dataset = tf.constant(X_test)
 
     b_C1 = init_bias(name='b_C1', shape=[c1_depth])
     b_C2 = init_bias(name='b_C2', shape=[c2_depth])
@@ -172,27 +173,6 @@ with graph.as_default():
     W_Y4 = init_weight(name='W_Y4', shape=[fc_nodes, out_labels])
     W_Y5 = init_weight(name='W_Y5', shape=[fc_nodes, out_labels])
     W_Y  = [W_Y1, W_Y2, W_Y3, W_Y4, W_Y5]
-
-        # weight histogram
-    tf.summary.histogram("W_C1", W_C1)
-    tf.summary.histogram("W_C2", W_C2)
-    tf.summary.histogram("W_C3", W_C3)
-    tf.summary.histogram("W_FC", W_FC)
-    tf.summary.histogram("W_Y1", W_Y1)
-    tf.summary.histogram("W_Y2", W_Y2)
-    tf.summary.histogram("W_Y3", W_Y3)
-    tf.summary.histogram("W_Y4", W_Y4)
-    tf.summary.histogram("W_Y5", W_Y5)
-
-    tf.summary.histogram("b_C1", b_C1)
-    tf.summary.histogram("b_C2", b_C2)
-    tf.summary.histogram("b_C3", b_C3)
-    tf.summary.histogram("b_FC", b_FC)
-    tf.summary.histogram("b_Y1", b_Y1)
-    tf.summary.histogram("b_Y2", b_Y2)
-    tf.summary.histogram("b_Y3", b_Y3)
-    tf.summary.histogram("b_Y4", b_Y4)
-    tf.summary.histogram("b_Y5", b_Y5)
 
     def model(X, keep_prob):
         with tf.name_scope('layer_1'):
@@ -221,44 +201,71 @@ with graph.as_default():
             y3 = tf.matmul(fc_out, W_Y[2]) + b_Y[2]
             y4 = tf.matmul(fc_out, W_Y[3]) + b_Y[3]
             y5 = tf.matmul(fc_out, W_Y[4]) + b_Y[4]
-            y  = [None, y1, y2, y3, y4, y5]
             
-        return y
+        return [y1, y2, y3, y4, y5]
 
-    y = model(X, keep_prob)
+    [y1, y2, y3, y4, y5] = model(X, keep_prob)
 
     with tf.name_scope("cross_entropy"):        
         cross_entropy = \
-            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y[1], Y[:, 1])) + \
-            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y[2], Y[:, 2])) + \
-            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y[3], Y[:, 3])) + \
-            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y[4], Y[:, 4])) + \
-            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y[5], Y[:, 5]))
+            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y1, Y[:, 1])) + \
+            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y2, Y[:, 2])) + \
+            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y3, Y[:, 3])) + \
+            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y4, Y[:, 4])) + \
+            tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y5, Y[:, 5]))
         tf.summary.scalar("cross_entropy", cross_entropy)
 
-    with tf.name_scope("accuracy"):
-        is_correct = \
-            tf.equal(tf.argmax(y[1], 1), tf.argmax(Y[:, 1], 1)) & \
-            tf.equal(tf.argmax(y[2], 1), tf.argmax(Y[:, 2], 1)) & \
-            tf.equal(tf.argmax(y[3], 1), tf.argmax(Y[:, 3], 1)) & \
-            tf.equal(tf.argmax(y[4], 1), tf.argmax(Y[:, 4], 1)) & \
-            tf.equal(tf.argmax(y[5], 1), tf.argmax(Y[:, 5], 1))
-        
-        accuracy   = tf.reduce_mean(tf.cast(is_correct, tf.float32))
-        tf.summary.scalar("accuracy", accuracy)
-
-        # optimizer
-        alpha = 0.05; 
-        global_step = tf.Variable(0)
-        learning_rate = tf.train.exponential_decay(alpha, global_step, 10000, 0.96)
+    # optimizer
+    alpha = 0.05; 
+    global_step = tf.Variable(0)
+    learning_rate = tf.train.exponential_decay(alpha, global_step, 10000, 0.96)
             
-        optimizer  = tf.train.AdagradOptimizer(learning_rate)
-        train_step = optimizer.minimize(cross_entropy, global_step=global_step)
+    optimizer  = tf.train.AdagradOptimizer(learning_rate)
+    train_step = optimizer.minimize(cross_entropy, global_step=global_step)
 
-        print('Graph done!')
+    def softmax_combine(X):
+        train_pred = tf.pack([
+            tf.nn.softmax(model(X, 1.0)[0]),
+            tf.nn.softmax(model(X, 1.0)[1]),
+            tf.nn.softmax(model(X, 1.0)[2]),
+            tf.nn.softmax(model(X, 1.0)[3]),
+            tf.nn.softmax(model(X, 1.0)[4])])
+        return train_pred
 
+    train_pred = softmax_combine(X)
+    test_pred  = softmax_combine(tf_test_dataset)
+
+    '''Save Model (will be initiated later)'''
+    saver = tf.train.Saver()
+
+    # weight histogram
+    tf.summary.histogram("W_C1", W_C1)
+    tf.summary.histogram("W_C2", W_C2)
+    tf.summary.histogram("W_C3", W_C3)
+    tf.summary.histogram("W_FC", W_FC)
+    tf.summary.histogram("W_Y1", W_Y1)
+    tf.summary.histogram("W_Y2", W_Y2)
+    tf.summary.histogram("W_Y3", W_Y3)
+    tf.summary.histogram("W_Y4", W_Y4)
+    tf.summary.histogram("W_Y5", W_Y5)
+
+    tf.summary.histogram("b_C1", b_C1)
+    tf.summary.histogram("b_C2", b_C2)
+    tf.summary.histogram("b_C3", b_C3)
+    tf.summary.histogram("b_FC", b_FC)
+    tf.summary.histogram("b_Y1", b_Y1)
+    tf.summary.histogram("b_Y2", b_Y2)
+    tf.summary.histogram("b_Y3", b_Y3)
+    tf.summary.histogram("b_Y4", b_Y4)
+    tf.summary.histogram("b_Y5", b_Y5)
+
+    print('Graph done!')
 
 #%%
+
+def accuracy(predictions, labels):
+    return (100.0 * np.sum(np.argmax(predictions, 2).T == labels)
+            / predictions.shape[1] / predictions.shape[0])
 
 def get_offset(step, batch_size, data):
     offset = (step * batch_size) % (data.shape[0] - batch_size)
@@ -276,5 +283,18 @@ with tf.Session(graph=graph) as sess:
         batch_X = X_train[offset:(offset + batch_size), :, :, :]
         batch_Y = y_train[offset:(offset + batch_size), :]
         train_data = {X: batch_X, Y: batch_Y}
-        summary = sess.run([train_step, cross_entropy], feed_dict=train_data)
+        _, l, pred, summary = sess.run([train_step, cross_entropy, train_pred, merged], feed_dict=train_data)
 
+        writer.add_summary(summary)
+        if (step % 500 == 0):
+            print(('Minibatch loss at step {}: {}').format(step, l))
+            print(('Minibatch accuracy: {}%'.format(accuracy(pred, batch_Y[:,1:6]))))
+
+    print(
+    ('Test accuracy: {}%'.format(accuracy(test_pred.eval(), y_test[:,1:6]))))
+
+    save_path = saver.save(sess, "digit_recognizer.ckpt")
+    print('Model saved to file: {}'.format(save_path))
+
+
+print('Tensorboard: tensorboard --logdir=log')
