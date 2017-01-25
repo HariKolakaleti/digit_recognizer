@@ -29,10 +29,12 @@ Created on Fri Jan 20 22:19:29 2017
 
 # program mode control
 
-debug    = 1
-idisplay = 0
-svhn_en  = 1
-mnist_en = 0
+debug     = 1
+idisplay  = 0
+svhn_en   = 1
+mnist_en  = 0
+num_tests = 13068
+num_steps = 60000
 
 #%%
 
@@ -64,9 +66,9 @@ if svhn_en:
     with open(pickle_file, 'rb') as f:
         save = pickle.load(f)
         X_train_samples = save['train_dataset']
-        X_test_samples  = save['test_dataset']
         y_train_samples = save['train_labels']
-        y_test_samples  = save['test_labels']
+        X_test_samples  = save['test_dataset'][0:num_tests, :]
+        y_test_samples  = save['test_labels'][0:num_tests, :]
         del save  
         print 'Training data shape: ', X_train_samples.shape
         print 'Training label shape:', y_train_samples.shape
@@ -99,7 +101,6 @@ if idisplay:
 img_size   = 32        # image size 32x32
 in_chan    = 1         # grey scale
 batch_size = 16        # batch size
-num_steps  = 100       # num steps
 
 # conv1
 c1_patch   = 5         # patch size 5x5
@@ -136,7 +137,7 @@ fc_nodes   = 64        # hidden layer
 
 # output
 out_digits = 6         # up to 5 digits [1-5]
-out_labels = 11        # 10 (detect 0-9)
+out_labels = 11        # detect 0-9 & none
 
 #%%
 
@@ -274,8 +275,8 @@ with graph.as_default():
 
 def accuracy(predictions, labels, debug=0):
     if debug:
-        print ('pred: {}  label: {}').format(predictions[0][0], labels[0])
-        #print ('sample {}: pred: {} label: {}').format(np.argmax(predictions, 2).T, labels)
+        for i in range(labels.shape[0]):
+            print np.argmax(predictions, 2).T[i], labels[i]
 
     return (100.0 * np.sum(np.argmax(predictions, 2).T == labels)
              / predictions.shape[1] / predictions.shape[0])
@@ -304,9 +305,11 @@ with tf.Session(graph=graph) as sess:
     sess.run(tf.global_variables_initializer())
     
     # train loops
+    print ('Start training: batch_size {} num_steps {}').format(batch_size, num_steps)
     model_train(X_train_samples, y_train_samples, batch_size, num_steps)
 
     # test accuracy
+    print ('Start testing: num_tests {}').format(batch_size, num_tests)
     test_accuracy = accuracy(y_test.eval(), y_test_samples[:,1:6], debug=debug)
     print (('Test accuracy: {}%'.format(test_accuracy)))
 
