@@ -81,7 +81,7 @@ def display_samples(num_samples=1):
         plt.imshow(X_test[idx].reshape(32,32), interpolation='nearest')
         plt.show()
 
-display_samples()
+#display_samples()
 
 #%%
 
@@ -277,7 +277,7 @@ with tf.Session(graph=graph) as sess:
 
     sess.run(tf.global_variables_initializer())
     
-    num_steps = 2
+    num_steps = 60000
     for step in range(num_steps):
         offset  = get_offset(step, batch_size, y_train)
         batch_X = X_train[offset:(offset + batch_size), :, :, :]
@@ -286,14 +286,14 @@ with tf.Session(graph=graph) as sess:
         _, l, pred, summary = sess.run([train_step, cross_entropy, train_pred, merged], feed_dict=train_data)
 
         writer.add_summary(summary)
-        if (step % 500 == 0):
+        if (step % 250 == 0):
             print(('Minibatch loss at step {}: {}').format(step, l))
             print(('Minibatch accuracy: {}%'.format(accuracy(pred, batch_Y[:,1:6]))))
 
     print(
     ('Test accuracy: {}%'.format(accuracy(test_pred.eval(), y_test[:,1:6]))))
 
-    save_path = saver.save(sess, "digit_recognizer.ckpt")
+    save_path = saver.save(sess, "session/digit_recognizer.ckpt")
     print('Model saved to file: {}'.format(save_path))
 
 
