@@ -9,7 +9,7 @@ Created on Fri Jan 20 22:19:29 2017
 """"
     model architecture
     ------------------
-    # inputs
+    # inputs 
     # layer_1
         - conv1
         - relu1
@@ -30,65 +30,78 @@ Created on Fri Jan 20 22:19:29 2017
 
 #%%
 
+# program mode control
+
+idisplay = 0
+svhn_en  = 1
+mnist_en = 0
+
+#%%
+
 import pickle
 import random
-import tensorflow as tf
-from PIL import Image
-import matplotlib.pyplot as plt
 import numpy as np
-from IPython.display import display
+import tensorflow as tf
+
+if idisplay:
+    import matplotlib.pyplot as plt
+    from PIL import Image
+    from IPython.display import display
 
 #%%
 
 # mnist dataset
-#from tensorflow.examples.tutorials.mnist import input_data
-#mnist = input_data.read_data_sets('MNIST_data', one_hot=True) 
+if mnist_en:
+    from tensorflow.examples.tutorials.mnist import input_data
+    mnist = input_data.read_data_sets('MNIST_data', one_hot=True) 
 
 #%%
 
 # import SVHN database
 
-print('Loading pickled data...')
+if svhn_en:
+    print 'Loading pickled data...'
+    pickle_file = 'svhn_data/SVHN.pickle'
 
-pickle_file = 'svhn_data/SVHN.pickle'
-
-with open(pickle_file, 'rb') as f:
-    save = pickle.load(f)
-    X_train = save['train_dataset']
-    y_train = save['train_labels']
-    X_test = save['test_dataset']
-    y_test = save['test_labels']
-    del save  
-    print('Training data shape:', X_train.shape)
-    print('Training label shape:',y_train.shape)
-    print('Test data shape:', X_test.shape)
-    print('Test label shape:', y_test.shape)
-
-print('Data successfully loaded!')
+    with open(pickle_file, 'rb') as f:
+        save = pickle.load(f)
+        X_train_samples = save['train_dataset']
+        X_test_samples  = save['test_dataset']
+        y_train_samples = save['train_labels']
+        y_test_samples  = save['test_labels']
+        del save  
+        print 'Training data shape: ', X_train_samples.shape
+        print 'Training label shape:', y_train_samples.shape
+        print 'Test data shape:     ', X_test_samples.shape
+        print 'Test label shape:    ', y_test_samples.shape
+        print 'Data successfully loaded !!'
 
 #%%
 
-def display_samples(num_samples=1):
-    for i in range(num_samples):        
+if idisplay:
+    def display_samples(num_samples=1):
+        for i in range(num_samples):        
+            # train samples
+            idx = random.choice(range(X_train_samples.shape[0]))
+            print 'Display sample train image:', idx
+            plt.imshow(X_train_samples[idx].reshape(32,32), interpolation='nearest')
+            plt.show()
 
-        idx = random.choice(range(X_train.shape[0]))
-        print('Display sample train image:', idx)
-        plt.imshow(X_train[idx].reshape(32,32), interpolation='nearest')
-        plt.show()
-        
-        idx = random.choice(range(X_test.shape[0]))
-        print('Display sample test image:', idx)
-        plt.imshow(X_test[idx].reshape(32,32), interpolation='nearest')
-        plt.show()
+            # test samples
+            idx = random.choice(range(X_test_samples.shape[0]))
+            print 'Display sample test image:', idx
+            plt.imshow(X_test_samples[idx].reshape(32,32), interpolation='nearest')
+            plt.show()
 
-#display_samples()
+    display_samples()
 
 #%%
 
 # params
-batch_size = 1         # batch size
 img_size   = 32        # image size 32x32
 in_chan    = 1         # grey scale
+batch_size = 16        # batch size
+num_steps  = 60000     # num steps
 
 # conv1
 c1_patch   = 5         # patch size 5x5
@@ -129,26 +142,26 @@ out_labels = 11        # 10 (detect 0-9)
 
 #%%
 
-# cnn model architecture
+# Graph
 
 graph = tf.Graph()
+with graph.as_default():    
 
-with graph.as_default():
-    
+    # in, out place holders
+    Y = tf.placeholder(tf.int32, shape=[batch_size, out_digits])
+    X = tf.placeholder(tf.float32, shape=[batch_size, img_size, img_size, in_chan])
+
+    # weights & biases
+
     def init_weight(name, shape, init='conv2d'):
         if init == 'conv2d':
             initializer = tf.contrib.layers.xavier_initializer_conv2d()
         else:
             initializer = tf.contrib.layers.xavier_initializer()
         return tf.get_variable(shape=shape, name=name, initializer=initializer)
-                
+
     def init_bias(name, shape):
         return tf.Variable(tf.constant(1.0, shape=shape), name=name)
-
-    X = tf.placeholder(tf.float32, shape=[batch_size, img_size, img_size, in_chan])
-    Y = tf.placeholder(tf.int32, shape=[batch_size, out_digits])
-
-    tf_test_dataset = tf.constant(X_test)
 
     b_C1 = init_bias(name='b_C1', shape=[c1_depth])
     b_C2 = init_bias(name='b_C2', shape=[c2_depth])
@@ -174,6 +187,7 @@ with graph.as_default():
     W_Y5 = init_weight(name='W_Y5', shape=[fc_nodes, out_labels])
     W_Y  = [W_Y1, W_Y2, W_Y3, W_Y4, W_Y5]
 
+    # CNN Model
     def model(X, keep_prob):
         with tf.name_scope('layer_1'):
             c1_out = tf.nn.conv2d(X, W_C1, c1_stride, padding=c1_padding)
@@ -204,8 +218,8 @@ with graph.as_default():
             
         return [y1, y2, y3, y4, y5]
 
+    # Loss function: cross_entropy 
     [y1, y2, y3, y4, y5] = model(X, keep_prob)
-
     with tf.name_scope("cross_entropy"):        
         cross_entropy = \
             tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y1, Y[:, 1])) + \
@@ -215,27 +229,24 @@ with graph.as_default():
             tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y5, Y[:, 5]))
         tf.summary.scalar("cross_entropy", cross_entropy)
 
-    # optimizer
-    alpha = 0.05; 
-    global_step = tf.Variable(0)
-    learning_rate = tf.train.exponential_decay(alpha, global_step, 10000, 0.96)
-            
-    optimizer  = tf.train.AdagradOptimizer(learning_rate)
-    train_step = optimizer.minimize(cross_entropy, global_step=global_step)
+    # Optimizer
+    alpha = 0.05; learn_step = tf.Variable(0)
+    learn = tf.train.exponential_decay(alpha, learn_step, 10000, 0.96)
+    optimizer = tf.train.AdagradOptimizer(learn).minimize(cross_entropy, global_step=learn_step)
 
     def softmax_combine(X):
-        train_pred = tf.pack([
+        y = tf.pack([
             tf.nn.softmax(model(X, 1.0)[0]),
             tf.nn.softmax(model(X, 1.0)[1]),
             tf.nn.softmax(model(X, 1.0)[2]),
             tf.nn.softmax(model(X, 1.0)[3]),
             tf.nn.softmax(model(X, 1.0)[4])])
-        return train_pred
+        return y
 
-    train_pred = softmax_combine(X)
-    test_pred  = softmax_combine(tf_test_dataset)
+    y_pred = softmax_combine(X)
+    y_test = softmax_combine(tf.constant(X_test_samples))
 
-    '''Save Model (will be initiated later)'''
+    # Save
     saver = tf.train.Saver()
 
     # weight histogram
@@ -271,30 +282,34 @@ def get_offset(step, batch_size, data):
     offset = (step * batch_size) % (data.shape[0] - batch_size)
     return offset
 
+def model_train(X_samples, y_samples, batch_size, num_steps):
+    for step in range(num_steps):
+        offset  = get_offset(step, batch_size, y_samples)
+        batch_X = X_samples[offset:(offset + batch_size), :, :, :]
+        batch_Y = y_samples[offset:(offset + batch_size), :]
+
+        _, loss, pred, summary = sess.run([optimizer, cross_entropy, y_pred, merged], 
+                                          feed_dict={X: batch_X, Y: batch_Y})
+
+        writer.add_summary(summary)
+
+        if (step % 250 == 0):
+            print (('Minibatch loss at step {}: {}').format(step, loss))
+            print (('Minibatch accuracy: {}%'.format(accuracy(pred, batch_Y[:,1:6]))))
+
 with tf.Session(graph=graph) as sess:
     writer = tf.summary.FileWriter("log", sess.graph)
     merged = tf.summary.merge_all()
-
     sess.run(tf.global_variables_initializer())
     
-    num_steps = 60000
-    for step in range(num_steps):
-        offset  = get_offset(step, batch_size, y_train)
-        batch_X = X_train[offset:(offset + batch_size), :, :, :]
-        batch_Y = y_train[offset:(offset + batch_size), :]
-        train_data = {X: batch_X, Y: batch_Y}
-        _, l, pred, summary = sess.run([train_step, cross_entropy, train_pred, merged], feed_dict=train_data)
+    # train loops
+    model_train(X_train_samples, y_train_samples, batch_size, num_steps)
 
-        writer.add_summary(summary)
-        if (step % 250 == 0):
-            print(('Minibatch loss at step {}: {}').format(step, l))
-            print(('Minibatch accuracy: {}%'.format(accuracy(pred, batch_Y[:,1:6]))))
-
-    print(
-    ('Test accuracy: {}%'.format(accuracy(test_pred.eval(), y_test[:,1:6]))))
+    # test accuracy
+    test_accuracy = accuracy(y_test.eval(), y_test_samples[:,1:6])
+    print (('Test accuracy: {}%'.format(test_accuracy)))
 
     save_path = saver.save(sess, "session/digit_recognizer.ckpt")
     print('Model saved to file: {}'.format(save_path))
-
 
 print('Tensorboard: tensorboard --logdir=log')
