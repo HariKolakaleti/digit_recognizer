@@ -7,31 +7,29 @@ Created on Fri Jan 20 22:19:29 2017
 """
 
 """"
-    model architecture
-    ------------------
-    # inputs 
-    # layer_1
-        - conv1
-        - relu1
-        - maxpool1
-    # layer_2
-        - conv2
-        - relu2
-        - maxpool2
-    # layer_3
-        - conv3
-        - relu3    
-        - dropout
-    # output
-        - fc1
-        - relu4
-        - softmax[1:5]
+    -------------------------------------------------------------------------------
+    CNN Model Architecture for multi digit recognition implemented with TensorFlow
+    -------------------------------------------------------------------------------
+      inputs    [batch_size, 32, 32, 1]
+      conv1     [patch=5x5, stride=1x1, padding=valid, 16 features]
+      relu1     [relu]
+      maxpool1  [patch=2x2, stride=2x2, padding=valid]
+      conv2     [patch=5x5, stride=1x1, padding=valid, 32 features]
+      relu2     [relu]
+      maxpool2  [patch=2x2, stride=2x2, padding=valid]
+      conv3     [patch=5x5, stride=1x1, padding=valid, 96 features]
+      relu2     [relu]
+      drop_out  20 %
+      fc        [nodes=64]
+      outputs   [y1,y2,y3,y4,y5]
+
 """
 
 #%%
 
 # program mode control
 
+debug    = 1
 idisplay = 0
 svhn_en  = 1
 mnist_en = 0
@@ -101,7 +99,7 @@ if idisplay:
 img_size   = 32        # image size 32x32
 in_chan    = 1         # grey scale
 batch_size = 16        # batch size
-num_steps  = 60000     # num steps
+num_steps  = 100       # num steps
 
 # conv1
 c1_patch   = 5         # patch size 5x5
@@ -117,7 +115,7 @@ p1_stride  = [1,2,2,1] # stride 2x2
 
 # conv2
 c2_patch   = 5         # patch size 5x5
-c2_depth   = 32        # 16 features (out channels)
+c2_depth   = 32        # 32 features (out channels)
 c2_padding = 'VALID'   # padding valid
 c2_stride  = [1,1,1,1] # stride 1x1
 
@@ -128,7 +126,7 @@ p2_stride  = [1,2,2,1] # stride 2x2
 
 # conv3
 c3_patch   = 5         # patch size 5x5
-c3_depth   = 96        # 16 features (out channels)
+c3_depth   = 96        # 96 features (out channels)
 c3_padding = 'VALID'   # padding valid
 c3_stride  = [1,1,1,1] # stride 1x1
 
@@ -215,7 +213,7 @@ with graph.as_default():
             y3 = tf.matmul(fc_out, W_Y[2]) + b_Y[2]
             y4 = tf.matmul(fc_out, W_Y[3]) + b_Y[3]
             y5 = tf.matmul(fc_out, W_Y[4]) + b_Y[4]
-            
+
         return [y1, y2, y3, y4, y5]
 
     # Loss function: cross_entropy 
@@ -274,9 +272,13 @@ with graph.as_default():
 
 #%%
 
-def accuracy(predictions, labels):
+def accuracy(predictions, labels, debug=0):
+    if debug:
+        print ('pred: {}  label: {}').format(predictions[0][0], labels[0])
+        #print ('sample {}: pred: {} label: {}').format(np.argmax(predictions, 2).T, labels)
+
     return (100.0 * np.sum(np.argmax(predictions, 2).T == labels)
-            / predictions.shape[1] / predictions.shape[0])
+             / predictions.shape[1] / predictions.shape[0])
 
 def get_offset(step, batch_size, data):
     offset = (step * batch_size) % (data.shape[0] - batch_size)
@@ -290,7 +292,6 @@ def model_train(X_samples, y_samples, batch_size, num_steps):
 
         _, loss, pred, summary = sess.run([optimizer, cross_entropy, y_pred, merged], 
                                           feed_dict={X: batch_X, Y: batch_Y})
-
         writer.add_summary(summary)
 
         if (step % 250 == 0):
@@ -306,7 +307,7 @@ with tf.Session(graph=graph) as sess:
     model_train(X_train_samples, y_train_samples, batch_size, num_steps)
 
     # test accuracy
-    test_accuracy = accuracy(y_test.eval(), y_test_samples[:,1:6])
+    test_accuracy = accuracy(y_test.eval(), y_test_samples[:,1:6], debug=debug)
     print (('Test accuracy: {}%'.format(test_accuracy)))
 
     save_path = saver.save(sess, "session/digit_recognizer.ckpt")
