@@ -109,7 +109,7 @@ def display_samples(data_folder, num_samples=1):
     for i in range(num_samples):
         im_name = random.choice(os.listdir(data_folder))
         im_file = data_folder + "/" + im_name
-        display(Image(filename=im_file))
+        #display(Image(filename=im_file))
 
 display_samples(svhn_train_folder)
 display_samples(svhn_test_folder)
