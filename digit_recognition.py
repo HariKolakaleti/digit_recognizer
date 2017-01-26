@@ -33,8 +33,12 @@ debug     = 1
 idisplay  = 0
 svhn_en   = 1
 mnist_en  = 0
-num_tests = 13068
 num_steps = 60000
+num_tests = 16
+#num_tests = 13068
+
+restore_session = 1
+session_name = 'save/session.mymodel.run1/digit_recognizer.ckpt'
 
 #%%
 
@@ -304,16 +308,21 @@ with tf.Session(graph=graph) as sess:
     merged = tf.summary.merge_all()
     sess.run(tf.global_variables_initializer())
     
-    # train loops
-    print ('Start training: batch_size {} num_steps {}').format(batch_size, num_steps)
-    model_train(X_train_samples, y_train_samples, batch_size, num_steps)
+    if restore_session:
+        print('Restoring session: ', session_name)
+        saver.restore(sess, session_name)
+    else:
+        # train loops
+        print ('Start training: batch_size {} num_steps {}').format(batch_size, num_steps)
+        model_train(X_train_samples, y_train_samples, batch_size, num_steps)
+
+        save_path = saver(sess, "session/digit_recognizer.ckpt")
+        print('Model saved to file: {}'.format(save_path))
 
     # test accuracy
     print ('Start testing: num_tests {}').format(batch_size, num_tests)
     test_accuracy = accuracy(y_test.eval(), y_test_samples[:,1:6], debug=debug)
     print (('Test accuracy: {}%'.format(test_accuracy)))
 
-    save_path = saver.save(sess, "session/digit_recognizer.ckpt")
-    print('Model saved to file: {}'.format(save_path))
 
 print('Tensorboard: tensorboard --logdir=log')
