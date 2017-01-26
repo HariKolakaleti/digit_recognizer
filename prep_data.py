@@ -70,7 +70,7 @@ def maybe_download(url, filename, expected_bytes, force=False):
   
   if force or not os.path.exists(filename):
     print('Attempting to download:', filename) 
-    filename, _ = urlretrieve(url, filename, reporthook=download_progress_hook)
+    filename, _ = urlretrieve(url+filename, filename, reporthook=download_progress_hook)
     print('\nDownload Complete!')
   
   statinfo = os.stat(filename)
@@ -81,9 +81,9 @@ def maybe_download(url, filename, expected_bytes, force=False):
       'Failed to verify ' + filename + '. Can you get to it with a browser?')
   return filename
 
-svhn_train_filename = maybe_download(svhn_url, svhn_data+'train.tar.gz', 404141560)
-svhn_test_filename = maybe_download(svhn_url, svhn_data+'test.tar.gz', 276555967)
-#svhn_extra_filename = maybe_download('url', svhn_data+'extra.tar.gz', 1955489752)
+svhn_train_filename = maybe_download(svhn_url, 'train.tar.gz', 404141560)
+svhn_test_filename = maybe_download(svhn_url, 'test.tar.gz', 276555967)
+svhn_extra_filename = maybe_download(svhn_url, 'extra.tar.gz', 1955489752)
 
 
 def maybe_extract(filename, force=False):
@@ -100,10 +100,9 @@ def maybe_extract(filename, force=False):
     tar.close()
   return root
   
-svhn_train_folder = maybe_extract(svhn_train_filename)
-svhn_test_folder = maybe_extract(svhn_test_filename)
-# svhn_extra_folder = maybe_extract(svhn_extra_filename)
-
+svhn_train_folder = 'svhn_data/' + maybe_extract(svhn_train_filename)
+svhn_test_folder  = 'svhn_data/' + maybe_extract(svhn_test_filename)
+svhn_extra_folder = 'svhn_data/' + maybe_extract(svhn_extra_filename)
 
 def display_samples(data_folder, num_samples=1):
     for i in range(num_samples):
@@ -111,9 +110,9 @@ def display_samples(data_folder, num_samples=1):
         im_file = data_folder + "/" + im_name
         #display(Image(filename=im_file))
 
-display_samples(svhn_train_folder)
-display_samples(svhn_test_folder)
-# display_samples(svhn_extra_folder)
+#display_samples(svhn_train_folder)
+#display_samples(svhn_test_folder)
+#display_samples(svhn_extra_folder)
  
 #%%
 
@@ -188,10 +187,10 @@ digitFileTest=DigitStructFile(os.path.join(svhn_test_folder,'digitStruct.mat'))
 test_data=digitFileTest.getAllDigitStructure_ByDigit()
 print('Success!')
 
-#print('Getting digit structure for extra data...')
-#digitFileExtra=DigitStructFile(os.path.join(svhn_extra_folder,'digitStruct.mat'))
-#extra_data=digitFileExtra.getAllDigitStructure_ByDigit()
-#print('Success!')
+print('Getting digit structure for extra data...')
+digitFileExtra=DigitStructFile(os.path.join(svhn_extra_folder,'digitStruct.mat'))
+extra_data=digitFileExtra.getAllDigitStructure_ByDigit()
+print('Success!')
 
 # Crop Training Images
 print('Cropping training images...')
@@ -216,15 +215,15 @@ for i in np.arange(len(test_data)):
 print('Success!')
 
 # Crop Extra Images
-#print('Cropping extra images...')
-#extra_imsize = np.ndarray([len(extra_data),2])
-#for i in np.arange(len(extra_data)):
-#    filename = extra_data[i]['filename']
-#    fullname = os.path.join(extra_folders, filename)
-#    im = Image.open(fullname)
-#    extra_imsize[i, :] = im.size[:]
-#
-#print('Success!')
+print('Cropping extra images...')
+extra_imsize = np.ndarray([len(extra_data),2])
+for i in np.arange(len(extra_data)):
+    filename = extra_data[i]['filename']
+    fullname = os.path.join(svhn_extra_folder, filename)
+    im = Image.open(fullname)
+    extra_imsize[i, :] = im.size[:]
+
+print('Success!')
 
 
 def generate_dataset(data, folder):
@@ -275,14 +274,13 @@ print('Generating training dataset and labels...')
 train_dataset, train_labels = generate_dataset(train_data, svhn_train_folder)
 print('Success! \n Training set: {} \n Training labels: {}'.format(train_dataset.shape, train_labels.shape))
 
-
 print('Generating testing dataset and labels...')
 test_dataset, test_labels = generate_dataset(test_data, svhn_test_folder)
 print('Success! \n Testing set: {} \n Testing labels: {}'.format(test_dataset.shape, test_labels.shape))
 
-#print('Generating extra dataset and labels...')
-#extra_dataset, extra_labels = generate_dataset(extra_data, extra_folders)
-#print('Success! \n Testing set: {} \n Testing labels: {}'.format(extra_dataset.shape, extra_labels.shape))
+print('Generating extra dataset and labels...')
+extra_dataset, extra_labels = generate_dataset(extra_data, svhn_extra_folder)
+print('Success! \n Testing set: {} \n Testing labels: {}'.format(extra_dataset.shape, extra_labels.shape))
 
 # Clean up data by deleting digits more than 5 (very few)
 print('Cleaning up training data...')
@@ -290,6 +288,36 @@ train_dataset = np.delete(train_dataset, 29929, axis=0)
 train_labels = np.delete(train_labels, 29929, axis=0)
 print('Success!')
 
+#%%
+# Expand Training Data
+print('Expanding training data randomly...')
+
+random.seed(8)
+
+n_labels = 10
+valid_index = []
+valid_index2 = []
+train_index = []
+train_index2 = []
+for i in np.arange(n_labels):
+    valid_index.extend(np.where(train_labels[:,1] == (i))[0][:400].tolist())
+    train_index.extend(np.where(train_labels[:,1] == (i))[0][400:].tolist())
+    valid_index2.extend(np.where(extra_labels[:,1] == (i))[0][:200].tolist())
+    train_index2.extend(np.where(extra_labels[:,1] == (i))[0][200:].tolist())
+
+random.shuffle(valid_index)
+random.shuffle(train_index)
+random.shuffle(valid_index2)
+random.shuffle(train_index2)
+
+valid_dataset = np.concatenate((extra_dataset[valid_index2,:,:,:], train_dataset[valid_index,:,:,:]), axis=0)
+valid_labels = np.concatenate((extra_labels[valid_index2,:], train_labels[valid_index,:]), axis=0)
+train_dataset_new = np.concatenate((extra_dataset[train_index2,:,:,:], train_dataset[train_index,:,:,:]), axis=0)
+train_labels_new = np.concatenate((extra_labels[train_index2,:], train_labels[train_index,:]), axis=0)
+
+print('Success! \n Training set: {} \n Training labels: {}'.format(train_dataset_new.shape, train_labels_new.shape))
+print('Success! \n Validation set: {} \n Validation labels: {}'.format(valid_dataset.shape, valid_labels.shape))
+print('Success! \n Testing set: {} \n Testing labels: {}'.format(test_dataset.shape, test_labels.shape))
 
 #%%
 
@@ -302,6 +330,8 @@ try:
     save = {
         'train_dataset': train_dataset,
         'train_labels': train_labels,
+        'valid_dataset': valid_dataset,
+        'valid_labels': valid_labels,
         'test_dataset': test_dataset,
         'test_labels': test_labels,
         }
