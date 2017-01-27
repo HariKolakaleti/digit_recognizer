@@ -33,13 +33,12 @@ debug     = 1
 idisplay  = 0
 svhn_en   = 1
 mnist_en  = 0
-#num_steps = 1000
 num_steps = 60000
 num_val   = 5684
 num_tests = 13068
 
 restore_session = 0
-session_name = 'save/session.mymodel.run1/digit_recognizer.ckpt'
+session_name = 'save/session.mymodel.run2/digit_recognizer.ckpt'
 
 #%%
 
@@ -140,7 +139,7 @@ c3_padding = 'VALID'   # padding valid
 c3_stride  = [1,1,1,1] # stride 1x1
 
 # fc
-keep_prob  = 0.9       # dropout rate
+keep_prob  = 0.8       # dropout rate
 fc_nodes   = 64        # hidden layer
 
 # output
@@ -156,23 +155,21 @@ with graph.as_default():
 
     # in, out place holders
 
-    Y_val  = tf.constant(X_val_samples)
-    Y_test = tf.constant(X_test_samples)
+    X_val  = tf.constant(X_val_samples)
+    X_test = tf.constant(X_test_samples)
 
     Y = tf.placeholder(tf.int32, shape=(batch_size, out_digits))
     X = tf.placeholder(tf.float32, shape=(batch_size, img_size, img_size, in_chan))
 
     # weights & biases
 
-    def init_weight(name, shape, init='conv2d'):
-        if init == 'conv2d':
-            initializer = tf.contrib.layers.xavier_initializer_conv2d()
-        else:
-            initializer = tf.contrib.layers.xavier_initializer()
+    def init_bias(name, shape):
+        initializer = tf.contrib.layers.xavier_initializer()
         return tf.get_variable(shape=shape, name=name, initializer=initializer)
 
-    def init_bias(name, shape):
-        return tf.Variable(tf.constant(1.0, shape=shape), name=name)
+    def init_weight(name, shape):
+        initializer = tf.contrib.layers.xavier_initializer_conv2d()
+        return tf.get_variable(shape=shape, name=name, initializer=initializer)
 
     b_C1 = init_bias(name='b_C1', shape=[c1_depth])
     b_C2 = init_bias(name='b_C2', shape=[c2_depth])
@@ -189,14 +186,12 @@ with graph.as_default():
     b_Y3 = init_bias(name='b_Y3', shape=[out_labels])
     b_Y4 = init_bias(name='b_Y4', shape=[out_labels])
     b_Y5 = init_bias(name='b_Y5', shape=[out_labels])
-    b_Y  = [b_Y1, b_Y2, b_Y3, b_Y4, b_Y5]
         
     W_Y1 = init_weight(name='W_Y1', shape=[fc_nodes, out_labels])
     W_Y2 = init_weight(name='W_Y2', shape=[fc_nodes, out_labels])
     W_Y3 = init_weight(name='W_Y3', shape=[fc_nodes, out_labels])
     W_Y4 = init_weight(name='W_Y4', shape=[fc_nodes, out_labels])
     W_Y5 = init_weight(name='W_Y5', shape=[fc_nodes, out_labels])
-    W_Y  = [W_Y1, W_Y2, W_Y3, W_Y4, W_Y5]
 
     # CNN Model
     def model(data, keep_prob):
@@ -221,11 +216,11 @@ with graph.as_default():
             fc_out  = tf.nn.relu(tf.matmul(reshape, W_FC) + b_FC)
         
         with tf.name_scope('softmax'):                
-            y1 = tf.matmul(fc_out, W_Y[0]) + b_Y[0]
-            y2 = tf.matmul(fc_out, W_Y[1]) + b_Y[1]
-            y3 = tf.matmul(fc_out, W_Y[2]) + b_Y[2]
-            y4 = tf.matmul(fc_out, W_Y[3]) + b_Y[3]
-            y5 = tf.matmul(fc_out, W_Y[4]) + b_Y[4]
+            y1 = tf.matmul(fc_out, W_Y1) + b_Y1
+            y2 = tf.matmul(fc_out, W_Y2) + b_Y2
+            y3 = tf.matmul(fc_out, W_Y3) + b_Y3
+            y4 = tf.matmul(fc_out, W_Y4) + b_Y4
+            y5 = tf.matmul(fc_out, W_Y5) + b_Y5
 
         return [y1, y2, y3, y4, y5]
 
@@ -256,8 +251,8 @@ with graph.as_default():
         return y
 
     y_pred      = softmax_combine(X)
-    y_val_pred  = softmax_combine(Y_val)
-    y_test_pred = softmax_combine(Y_test)
+    y_val_pred  = softmax_combine(X_val)
+    y_test_pred = softmax_combine(X_test)
 
     # Save
     saver = tf.train.Saver()
