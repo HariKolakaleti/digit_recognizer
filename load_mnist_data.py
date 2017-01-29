@@ -5,10 +5,6 @@
 #%%
 """
 
-# global settings
-
-idisplay = 0
-
 # import modules
 
 import numpy as np
@@ -25,6 +21,13 @@ from sklearn.linear_model import LogisticRegression
 from six.moves.urllib.request import urlretrieve
 from six.moves import cPickle as pickle
 from socket import socket
+
+# global variables
+
+idisplay = 0
+num_merge = 5
+img_height = 28
+img_width = 28
 
 np.random.seed(133)
 
@@ -101,17 +104,17 @@ train_labels  = idx2numpy.convert_from_file('mnist_data/train-labels-idx1-ubyte'
 test_samples  = idx2numpy.convert_from_file('mnist_data/t10k-images-idx3-ubyte')
 test_labels   = idx2numpy.convert_from_file('mnist_data/t10k-labels-idx1-ubyte')
 
-def display_samples(data, labels, text=None, num_samples=1):
-    for i in range(num_samples):  
-        idx = random.choice(range(data.shape[0]))
+def display_samples(data, labels, text=None, num_samples=1, idx='rand'):
+    for i in range(num_samples):
+        if idx == 'rand':
+            idx = random.choice(range(data.shape[0]))
         print 'Display sample {} image: index: {} label: {}'.format(text, idx, labels[idx])
         plt.imshow(data[idx], interpolation='nearest')
         plt.show()
-
+        
 if idisplay:
     display_samples(train_samples, train_labels, text='train', num_samples=2)
     display_samples(test_samples, test_labels, text='test', num_samples=2)
-
 
 def createSequences(data, labels, img_height, img_width, merge=5):
     num_merged = int(data.shape[0]/merge)
@@ -128,15 +131,15 @@ def createSequences(data, labels, img_height, img_width, merge=5):
     
 m_train_samples, m_train_labels = createSequences(train_samples, 
                                                   train_labels, 
-                                                  img_height=28, 
-                                                  img_width=28, 
-                                                  merge=5)
+                                                  img_height=img_height, 
+                                                  img_width=img_width, 
+                                                  merge=num_merge)
 
 m_test_samples, m_test_labels = createSequences(test_samples, 
                                                 test_labels, 
-                                                img_height=28, 
-                                                img_width=28, 
-                                                merge=5)
+                                                img_height=img_height, 
+                                                img_width=img_width, 
+                                                merge=num_merge)
 
 if idisplay:
     display_samples(m_train_samples, m_train_labels, text='train', num_samples=2)
@@ -166,15 +169,47 @@ if idisplay:
     Image(filename='mnist_merged/merged_train/1.png')
     Image(filename='mnist_merged/merged_test/1.png')
 
+# Save
+m_train_samples_save = m_train_samples
+m_train_labels_save = m_train_labels
+
+if idisplay:
+    print 'Display before moving to validation set'
+    display_samples(m_train_samples, m_train_labels, text='train', idx=1)
+    display_samples(m_train_samples, m_train_labels, text='train', idx=2001)
+
+# Create validation set (2000 of 12000)
+m_val_samples = np.ndarray(shape=(2000, img_height, img_width*num_merge), dtype=np.float32)
+m_val_labels = np.ndarray(shape=(2000, num_merge), dtype=np.int32)
+
+m_val_samples = m_train_samples[:2000,]
+m_val_labels = m_train_labels[:2000,]
+m_train_samples = np.delete(m_train_samples, np.r_[:2000], 0)
+m_train_labels = np.delete(m_train_labels, np.r_[:2000], 0)
+
+if idisplay:
+    print 'Display after moving to validation set'
+    display_samples(m_train_samples, m_train_labels, text='train', idx=1)
+    display_samples(m_val_samples, m_val_labels, text='validation', idx=1)
+
 # Create Pickling File
-print('Pickling data: mnist_merged/MNIST.merged.pickle ...')
+print('Pickling data...')
 pickle_file = 'mnist_merged/MNIST.merged.pickle'
+
+print 'Train samples: {}'.format(m_train_samples.shape)
+print 'Train labels: {}'.format(m_train_labels.shape)
+print 'Validation samples: {}'.format(m_val_samples.shape)
+print 'Validation labels: {}'.format(m_val_labels.shape)
+print 'Test samples: {}'.format(m_test_samples.shape)
+print 'Test labels: {}'.format(m_test_labels.shape)
 
 try:
     f = open(pickle_file, 'wb')
     save = {
         'm_train_samples': m_train_samples,
         'm_train_labels': m_train_labels,
+        'm_val_samples': m_val_samples,
+        'm_val_labels': m_val_labels,
         'm_test_samples': m_test_samples,
         'm_test_labels': m_test_labels,
         }
@@ -187,4 +222,3 @@ except Exception as e:
 statinfo = os.stat(pickle_file)
 print('Success!')
 print('Compressed pickle size: {}'.format(statinfo.st_size))
-
