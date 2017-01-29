@@ -5,6 +5,10 @@
 #%%
 """
 
+# global settings
+
+idisplay = 0
+
 # import modules
 
 import numpy as np
@@ -13,16 +17,16 @@ import random
 import sys
 import gzip
 import idx2numpy 
+import matplotlib.pyplot as plt
 from IPython.display import display, Image
 from scipy import ndimage
+from scipy.misc import imsave
 from sklearn.linear_model import LogisticRegression
 from six.moves.urllib.request import urlretrieve
 from six.moves import cPickle as pickle
-from PIL import Image
+from socket import socket
 
 np.random.seed(133)
-
-#%% 
 
 # MNIST dataset
 mnist_url = 'http://yann.lecun.com/exdb/mnist/'
@@ -56,7 +60,6 @@ def download_progress_hook(count, blockSize, totalSize):
       
     last_percent_reported = percent
         
-
 def maybe_download(url, filename, expected_bytes, force=False):
   """Download a file if not present, and make sure it's the right size."""
   
@@ -83,6 +86,7 @@ def maybe_extract(filename):
     if os.path.isfile(fname):
         print('Skipping extraction of %s.' % (filename))
     else:
+        print('Extracting %s ...' % (filename))
         cmd = 'gunzip {}'.format(filename)
         os.system(cmd)
     return fname
@@ -92,46 +96,95 @@ maybe_extract('mnist_data/train-labels-idx1-ubyte.gz')
 maybe_extract('mnist_data/t10k-images-idx3-ubyte.gz')
 maybe_extract('mnist_data/t10k-labels-idx1-ubyte.gz')
 
-def display_samples(data_folder, num_samples=1):
-    for i in range(num_samples):
-        im_name = random.choice(os.listdir(data_folder))
-        im_file = data_folder + "/" + im_name
-        #display(Image(filename=im_file))
+train_samples = idx2numpy.convert_from_file('mnist_data/train-images-idx3-ubyte')
+train_labels  = idx2numpy.convert_from_file('mnist_data/train-labels-idx1-ubyte')
+test_samples  = idx2numpy.convert_from_file('mnist_data/t10k-images-idx3-ubyte')
+test_labels   = idx2numpy.convert_from_file('mnist_data/t10k-labels-idx1-ubyte')
 
-#display_samples(svhn_train_folder)
-#display_samples(svhn_test_folder)
-#display_samples(svhn_extra_folder)
+def display_samples(data, labels, text=None, num_samples=1):
+    for i in range(num_samples):  
+        idx = random.choice(range(data.shape[0]))
+        print 'Display sample {} image: index: {} label: {}'.format(text, idx, labels[idx])
+        plt.imshow(data[idx], interpolation='nearest')
+        plt.show()
+
+if idisplay:
+    display_samples(train_samples, train_labels, text='train', num_samples=2)
+    display_samples(test_samples, test_labels, text='test', num_samples=2)
 
 
-# read data and convert idx file to numpy array
-ndarr = idx2numpy.convert_from_file('mnist_data/train-images-idx3-ubyte')
-labels_raw = idx2numpy.convert_from_file('mnist_data/train-labels-idx1-ubyte')
-
-dataset_size = ndarr.shape[0]/5
-image_height = 28
-image_width = 140
-
-def createSequences():
-    dataset = np.ndarray(shape=(dataset_size, image_height, image_width),
-                         dtype=np.float32)
+def createSequences(data, labels, img_height, img_width, merge=5):
+    num_merged = int(data.shape[0]/merge)
+    nlabels = np.ndarray(shape=(num_merged, merge), dtype=np.int32)
+    ndata = np.ndarray(shape=(num_merged, img_height, img_width*merge), dtype=np.float32)
     
-    data_labels = []
+    i = 0; w = 0
+    while i < num_merged:
+        ndata[i,:,:] = np.hstack([data[w],data[w+1],data[w+2],data[w+3],data[w+4]])
+        nlabels[i,:] = np.hstack([labels[w],labels[w+1],labels[w+2],labels[w+3],labels[w+4]])
+        i += 1; w += 5
+        
+    return ndata, nlabels
     
-    i = 0
-    w = 0
-    while i < dataset_size:
-        temp = np.hstack(
-            [ndarr[w], ndarr[w + 1], ndarr[w + 2], ndarr[w + 3], ndarr[w + 4]])
-        dataset[i, :, :] = temp
-        temp_str = (labels_raw[w], labels_raw[
-            w + 1], labels_raw[w + 2], labels_raw[w + 3], labels_raw[w + 4])
-        data_labels.append(temp_str)
-        w += 5
-        i += 1
-        
-        np.array(data_labels)
-        
-        return dataset, data_labels
-        
-        
-dataset, data_labels = createSequences()
+m_train_samples, m_train_labels = createSequences(train_samples, 
+                                                  train_labels, 
+                                                  img_height=28, 
+                                                  img_width=28, 
+                                                  merge=5)
+
+m_test_samples, m_test_labels = createSequences(test_samples, 
+                                                test_labels, 
+                                                img_height=28, 
+                                                img_width=28, 
+                                                merge=5)
+
+if idisplay:
+    display_samples(m_train_samples, m_train_labels, text='train', num_samples=2)
+    display_samples(m_test_samples, m_test_labels, text='test', num_samples=2)
+
+mnist_merged = './mnist_merged/'
+mnist_merged_train = './mnist_merged/merged_train'
+mnist_merged_test  = './mnist_merged/merged_test'
+
+if not os.path.isdir(mnist_merged):    
+    print ('Creating dir:', mnist_merged)
+    os.mkdir(mnist_merged)
+    os.mkdir(mnist_merged_train)
+    os.mkdir(mnist_merged_test)
+
+print 'Saving merged train images to: {} ...'.format(mnist_merged_train)
+for i in range(m_train_samples.shape[0]):
+    save_file = '{}/{}.png'.format(mnist_merged_train, i)
+    imsave(save_file, m_train_samples[i])
+
+print 'Saving merged test images to: {} ...'.format(mnist_merged_test)
+for i in range(m_test_samples.shape[0]):
+    save_file = '{}/{}.png'.format(mnist_merged_test, i)
+    imsave(save_file, m_test_samples[i])
+
+if idisplay:
+    Image(filename='mnist_merged/merged_train/1.png')
+    Image(filename='mnist_merged/merged_test/1.png')
+
+# Create Pickling File
+print('Pickling data: mnist_merged/MNIST.merged.pickle ...')
+pickle_file = 'mnist_merged/MNIST.merged.pickle'
+
+try:
+    f = open(pickle_file, 'wb')
+    save = {
+        'm_train_samples': m_train_samples,
+        'm_train_labels': m_train_labels,
+        'm_test_samples': m_test_samples,
+        'm_test_labels': m_test_labels,
+        }
+    pickle.dump(save, f, pickle.HIGHEST_PROTOCOL)
+    f.close()
+except Exception as e:
+    print('Unable to save data to {}: {}'.format(pickle_file, e))
+    raise
+    
+statinfo = os.stat(pickle_file)
+print('Success!')
+print('Compressed pickle size: {}'.format(statinfo.st_size))
+
