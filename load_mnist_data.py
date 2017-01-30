@@ -123,14 +123,17 @@ if idisplay:
     
 def createSequences(data, labels, img_height, img_width, merge=5):
     num_merged = int(data.shape[0]/merge)
-    nlabels = np.ndarray(shape=(num_merged, merge+1), dtype=np.int32)
-    ndata = np.ndarray(shape=(num_merged, img_height, img_width*merge), dtype=np.float32)
+    nlabels = np.ndarray(shape=(data.shape[0]*2, merge+1), dtype=np.int32)
+    ndata = np.ndarray(shape=(data.shape[0]*2, img_height, img_width*merge), dtype=np.float32)
     
-    i = 0; w = 0
-    while i < num_merged:
-        ndata[i,:,:] = np.concatenate([data[w],data[w+1],data[w+2],data[w+3],data[w+4]], axis=1)
-        nlabels[i,:] = np.hstack([0,labels[w],labels[w+1],labels[w+2],labels[w+3],labels[w+4]])
-        i += 1; w += 5
+    for i in range(merge*2):
+        rand_idx = random.sample(range(0, data.shape[0]), data.shape[0])
+        w = 0; 
+        for j in range(num_merged):
+            a, b, c, d, e = rand_idx[w:w+merge]
+            ndata[(i*num_merged)+j,:,:] = np.concatenate([data[a],data[b],data[c],data[d],data[e]], axis=1)
+            nlabels[(i*num_merged)+j,:] = np.hstack([0,labels[a],labels[b],labels[c],labels[d],labels[e]])
+            w += merge
 
     # add dim for grey scale
     ndata = np.expand_dims(ndata, axis=3)
@@ -186,14 +189,15 @@ if idisplay:
     display_samples(m_train_samples, m_train_labels, text='train', idx=1)
     display_samples(m_train_samples, m_train_labels, text='train', idx=2001)
 
-# Create validation set (2000 of 12000)
-m_val_samples = np.ndarray(shape=(2000, img_height, img_width*num_merge), dtype=np.float32)
-m_val_labels = np.ndarray(shape=(2000, num_merge), dtype=np.int32)
+# Create validation set (6000 of 60000)
+nval = 6000
+m_val_samples = np.ndarray(shape=(nval, img_height, img_width*num_merge), dtype=np.float32)
+m_val_labels = np.ndarray(shape=(nval, num_merge), dtype=np.int32)
 
-m_val_samples = m_train_samples[:2000,]
-m_val_labels = m_train_labels[:2000,]
-m_train_samples = np.delete(m_train_samples, np.r_[:2000], 0)
-m_train_labels = np.delete(m_train_labels, np.r_[:2000], 0)
+m_val_samples = m_train_samples[:nval,]
+m_val_labels = m_train_labels[:nval,]
+m_train_samples = np.delete(m_train_samples, np.r_[:nval], 0)
+m_train_labels = np.delete(m_train_labels, np.r_[:nval], 0)
 
 if idisplay:
     print 'Display after moving to validation set'

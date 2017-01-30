@@ -11,15 +11,15 @@ Created on Fri Jan 20 22:19:29 2017
     CNN Model Architecture for multi digit recognition implemented with TensorFlow
     -------------------------------------------------------------------------------
       inputs    [batch_size, 28, 140, 1]
-      conv1     [patch=5x5, stride=1x1, padding=valid, 16 features]
+      conv1     [patch=3x15, stride=1x1, padding=valid, 16 features]
       relu1     [relu]
       maxpool1  [patch=2x2, stride=2x2, padding=valid]
-      conv2     [patch=5x5, stride=1x1, padding=valid, 32 features]
+      conv2     [patch=4x20, stride=1x1, padding=valid, 32 features]
       relu2     [relu]
       maxpool2  [patch=2x2, stride=2x2, padding=valid]
-      conv3     [patch=5x5, stride=1x1, padding=valid, 96 features]
+      conv3     [patch=5x22, stride=1x1, padding=valid, 96 features]
       relu2     [relu]
-      drop_out  20 %
+      drop_out  10 %
       fc        [nodes=64]
       outputs   [y1,y2,y3,y4,y5]
 
@@ -36,12 +36,13 @@ mnist_en  = 1
 restore_session = 0
 
 if mnist_en:
-    num_steps  = 625
-    num_val    = 2000
-    num_tests  = 2000
+    num_steps  = 7125
+    num_val    = 6000
+    num_tests  = 10000
     img_width  = 140
     img_height = 28
-    session_name = 'save/session.mymodel.run2/digit_recognizer.mnist.ckpt'
+    session_name = 'session/digit_recognizer.ckpt'
+    #session_name = 'save/session.mymodel.run2/digit_recognizer.mnist.ckpt'
 elif svhn_en:
     num_steps  = 60000
     num_val    = 5684
@@ -71,8 +72,8 @@ if mnist_en:
         y_train_samples = save['m_train_labels']
         X_val_samples   = save['m_val_samples']
         y_val_samples   = save['m_val_labels']
-        X_test_samples  = save['m_test_samples']
-        y_test_samples  = save['m_test_labels']
+        X_test_samples  = save['m_test_samples'][:4000,]
+        y_test_samples  = save['m_test_labels'][:4000,]
         del save  
         print 'Training data shape: ', X_train_samples.shape
         print 'Training label shape:', y_train_samples.shape
@@ -139,8 +140,8 @@ if mnist_en:
     p1_stride  = [1,2,2,1] # stride 2x2
     
     # conv2
-    c2_patch_h = 4         # patch size 4x18
-    c2_patch_w = 18        # patch size 4x18
+    c2_patch_h = 4         # patch size 4x20
+    c2_patch_w = 20        # patch size 4x20
     c2_depth   = 32        # 32 features (out channels)
     c2_padding = 'VALID'   # padding valid
     c2_stride  = [1,1,1,1] # stride 1x1
@@ -151,14 +152,14 @@ if mnist_en:
     p2_stride  = [1,2,2,1] # stride 2x2
 
     # conv3
-    c3_patch_h = 5         # patch size 5x19
-    c3_patch_w = 19        # patch size 5x19
+    c3_patch_h = 5         # patch size 5x22
+    c3_patch_w = 22        # patch size 5x22
     c3_depth   = 96        # 96 features (out channels)
     c3_padding = 'VALID'   # padding valid
     c3_stride  = [1,1,1,1] # stride 1x1
 
     # fc
-    keep_prob  = 0.8       # dropout rate
+    keep_prob  = 0.9       # dropout rate
     fc_nodes   = 64        # hidden layer
 
     # output
