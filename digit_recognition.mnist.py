@@ -372,7 +372,7 @@ with graph.as_default():
 def accuracy(predictions, labels, debug=0):
     if debug:
         for i in range(labels.shape[0]):
-            print np.argmax(predictions, 2).T[i], labels[i]
+            print 'Test i:', np.argmax(predictions, 2).T[i], labels[i]
 
     return (100.0 * np.sum(np.argmax(predictions, 2).T == labels)
              / predictions.shape[1] / predictions.shape[0])
