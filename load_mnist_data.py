@@ -24,7 +24,7 @@ from socket import socket
 
 # global variables
 
-idisplay = 0
+idisplay = 1
 num_merge = 5
 img_height = 28
 img_width = 28
@@ -199,11 +199,6 @@ if idisplay:
 m_train_samples_save = m_train_samples
 m_train_labels_save = m_train_labels
 
-if idisplay:
-    print 'Display before moving to validation set'
-    display_samples(m_train_samples, m_train_labels, text='train', idx=1)
-    display_samples(m_train_samples, m_train_labels, text='train', idx=2001)
-
 # Create validation set (6000 of 60000)
 nval = 6000
 m_val_samples = np.ndarray(shape=(nval, img_height, img_width*num_merge), dtype=np.float32)
@@ -213,11 +208,6 @@ m_val_samples = m_train_samples[:nval,]
 m_val_labels = m_train_labels[:nval,]
 m_train_samples = np.delete(m_train_samples, np.r_[:nval], 0)
 m_train_labels = np.delete(m_train_labels, np.r_[:nval], 0)
-
-if idisplay:
-    print 'Display after moving to validation set'
-    display_samples(m_train_samples, m_train_labels, text='train', idx=1)
-    display_samples(m_val_samples, m_val_labels, text='validation', idx=1)
 
 # Create Pickling File
 print('Pickling data...')
