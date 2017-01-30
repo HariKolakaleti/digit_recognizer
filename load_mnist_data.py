@@ -104,29 +104,37 @@ train_labels  = idx2numpy.convert_from_file('mnist_data/train-labels-idx1-ubyte'
 test_samples  = idx2numpy.convert_from_file('mnist_data/t10k-images-idx3-ubyte')
 test_labels   = idx2numpy.convert_from_file('mnist_data/t10k-labels-idx1-ubyte')
 
-def display_samples(data, labels, text=None, num_samples=1, idx='rand'):
+def display_samples(data, labels, text=None, num_samples=1, idx='rand', squeeze=0):
     for i in range(num_samples):
         if idx == 'rand':
             idx = random.choice(range(data.shape[0]))
+
         print 'Display sample {} image: index: {} label: {}'.format(text, idx, labels[idx])
-        plt.imshow(data[idx], interpolation='nearest')
+        if squeeze == 0:
+            plt.imshow(data[idx], interpolation='nearest')
+        else:
+            plt.imshow(np.squeeze(data[idx], axis=(2,)), interpolation='nearest')
+        
         plt.show()
         
 if idisplay:
-    display_samples(train_samples, train_labels, text='train', num_samples=2)
-    display_samples(test_samples, test_labels, text='test', num_samples=2)
-
+    display_samples(train_samples, train_labels, text='train', num_samples=1)
+    display_samples(test_samples, test_labels, text='test', num_samples=1)
+    
 def createSequences(data, labels, img_height, img_width, merge=5):
     num_merged = int(data.shape[0]/merge)
-    nlabels = np.ndarray(shape=(num_merged, merge), dtype=np.int32)
+    nlabels = np.ndarray(shape=(num_merged, merge+1), dtype=np.int32)
     ndata = np.ndarray(shape=(num_merged, img_height, img_width*merge), dtype=np.float32)
     
     i = 0; w = 0
     while i < num_merged:
-        ndata[i,:,:] = np.hstack([data[w],data[w+1],data[w+2],data[w+3],data[w+4]])
-        nlabels[i,:] = np.hstack([labels[w],labels[w+1],labels[w+2],labels[w+3],labels[w+4]])
+        ndata[i,:,:] = np.concatenate([data[w],data[w+1],data[w+2],data[w+3],data[w+4]], axis=1)
+        nlabels[i,:] = np.hstack([0,labels[w],labels[w+1],labels[w+2],labels[w+3],labels[w+4]])
         i += 1; w += 5
-        
+
+    # add dim for grey scale
+    ndata = np.expand_dims(ndata, axis=3)
+    
     return ndata, nlabels
     
 m_train_samples, m_train_labels = createSequences(train_samples, 
@@ -142,8 +150,8 @@ m_test_samples, m_test_labels = createSequences(test_samples,
                                                 merge=num_merge)
 
 if idisplay:
-    display_samples(m_train_samples, m_train_labels, text='train', num_samples=2)
-    display_samples(m_test_samples, m_test_labels, text='test', num_samples=2)
+    display_samples(m_train_samples, m_train_labels, text='train', num_samples=1, squeeze=1)
+    display_samples(m_test_samples, m_test_labels, text='test', num_samples=1, squeeze=1)
 
 mnist_merged = './mnist_merged/'
 mnist_merged_train = './mnist_merged/merged_train'
@@ -158,12 +166,12 @@ if not os.path.isdir(mnist_merged):
 print 'Saving merged train images to: {} ...'.format(mnist_merged_train)
 for i in range(m_train_samples.shape[0]):
     save_file = '{}/{}.png'.format(mnist_merged_train, i)
-    imsave(save_file, m_train_samples[i])
+    imsave(save_file, (np.squeeze(m_train_samples[i], axis=(2,))))
 
 print 'Saving merged test images to: {} ...'.format(mnist_merged_test)
 for i in range(m_test_samples.shape[0]):
     save_file = '{}/{}.png'.format(mnist_merged_test, i)
-    imsave(save_file, m_test_samples[i])
+    imsave(save_file, (np.squeeze(m_test_samples[i], axis=(2,))))
 
 if idisplay:
     Image(filename='mnist_merged/merged_train/1.png')

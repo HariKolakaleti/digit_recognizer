@@ -30,7 +30,7 @@ Created on Fri Jan 20 22:19:29 2017
 # program mode control
 
 debug     = 1
-idisplay  = 1
+idisplay  = 0
 svhn_en   = 0
 mnist_en  = 1
 restore_session = 0
