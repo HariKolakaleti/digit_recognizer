@@ -131,8 +131,23 @@ def createSequences(data, labels, img_height, img_width, merge=5):
         w = 0; 
         for j in range(num_merged):
             a, b, c, d, e = rand_idx[w:w+merge]
-            ndata[(i*num_merged)+j,:,:] = np.concatenate([data[a],data[b],data[c],data[d],data[e]], axis=1)
-            nlabels[(i*num_merged)+j,:] = np.hstack([0,labels[a],labels[b],labels[c],labels[d],labels[e]])
+            num_rand = random.choice(range(1,6))
+            zeros = np.zeros([28,28])
+            if num_rand == 5: 
+                ndata[(i*num_merged)+j,:,:] = np.concatenate([data[a],data[b],data[c],data[d],data[e]], axis=1)
+                nlabels[(i*num_merged)+j,:] = np.hstack([0,labels[a],labels[b],labels[c],labels[d],labels[e]])
+            elif num_rand == 4:
+                ndata[(i*num_merged)+j,:,:] = np.concatenate([data[a],data[b],data[c],data[d],zeros], axis=1)
+                nlabels[(i*num_merged)+j,:] = np.hstack([0,labels[a],labels[b],labels[c],labels[d],0])
+            elif num_rand == 3:
+                ndata[(i*num_merged)+j,:,:] = np.concatenate([data[a],data[b],data[c],zeros,zeros], axis=1)
+                nlabels[(i*num_merged)+j,:] = np.hstack([0,labels[a],labels[b],labels[c],0,0])
+            elif num_rand == 2:
+                ndata[(i*num_merged)+j,:,:] = np.concatenate([data[a],data[b],zeros,zeros,zeros], axis=1)
+                nlabels[(i*num_merged)+j,:] = np.hstack([0,labels[a],labels[b],0,0,0])
+            elif num_rand == 1:
+                ndata[(i*num_merged)+j,:,:] = np.concatenate([data[a],zeros,zeros,zeros,zeros], axis=1)
+                nlabels[(i*num_merged)+j,:] = np.hstack([0,labels[a],0,0,0,0])
             w += merge
 
     # add dim for grey scale
