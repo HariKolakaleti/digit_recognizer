@@ -7,6 +7,8 @@ Created on Fri Jan 20 22:19:29 2017
 """
 
 """"
+MNIST MODEL:
+
     -------------------------------------------------------------------------------
     CNN Model Architecture for multi digit recognition implemented with TensorFlow
     -------------------------------------------------------------------------------
@@ -23,6 +25,24 @@ Created on Fri Jan 20 22:19:29 2017
       fc        [nodes=64]
       outputs   [y1,y2,y3,y4,y5]
 
+SVHN MODEL:
+
+    -------------------------------------------------------------------------------
+    CNN Model Architecture for multi digit recognition implemented with TensorFlow
+    -------------------------------------------------------------------------------
+      inputs    [batch_size, 32, 32, 1]
+      conv1     [patch=5x5, stride=1x1, padding=valid, 16 features]
+      relu1     [relu]
+      maxpool1  [patch=2x2, stride=2x2, padding=valid]
+      conv2     [patch=5x5, stride=1x1, padding=valid, 32 features]
+      relu2     [relu]
+      maxpool2  [patch=2x2, stride=2x2, padding=valid]
+      conv3     [patch=5x5, stride=1x1, padding=valid, 96 features]
+      relu2     [relu]
+      drop_out  20 %
+      fc        [nodes=64]
+      outputs   [y1,y2,y3,y4,y5]
+
 """
 
 #%%
@@ -31,8 +51,8 @@ Created on Fri Jan 20 22:19:29 2017
 
 debug     = 1
 idisplay  = 0
-svhn_en   = 0
-mnist_en  = 1
+svhn_en   = 1
+mnist_en  = 0
 restore_session = 0
 
 if mnist_en:
