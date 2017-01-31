@@ -7,6 +7,26 @@ Created on Fri Jan 20 22:19:29 2017
 """
 
 """"
+MNIST MODEL:
+
+    -------------------------------------------------------------------------------
+    CNN Model Architecture for multi digit recognition implemented with TensorFlow
+    -------------------------------------------------------------------------------
+      inputs    [batch_size, 28, 140, 1]
+      conv1     [patch=3x15, stride=1x1, padding=valid, 16 features]
+      relu1     [relu]
+      maxpool1  [patch=2x2, stride=2x2, padding=valid]
+      conv2     [patch=4x20, stride=1x1, padding=valid, 32 features]
+      relu2     [relu]
+      maxpool2  [patch=2x2, stride=2x2, padding=valid]
+      conv3     [patch=5x22, stride=1x1, padding=valid, 96 features]
+      relu2     [relu]
+      drop_out  10 %
+      fc        [nodes=64]
+      outputs   [y1,y2,y3,y4,y5]
+
+SVHN MODEL:
+
     -------------------------------------------------------------------------------
     CNN Model Architecture for multi digit recognition implemented with TensorFlow
     -------------------------------------------------------------------------------
@@ -31,16 +51,28 @@ Created on Fri Jan 20 22:19:29 2017
 
 debug     = 1
 idisplay  = 0
-svhn_en   = 1
+svhn_en   = 0
 mnist_en  = 0
-num_steps = 60000
-num_val   = 5684
-num_tests = 13068
-
+mydata_en = 1
 restore_session = 0
-session_name = 'save/session.mymodel.run2/digit_recognizer.ckpt'
 
-#%%
+if mnist_en:
+    num_steps  = 7125
+    num_val    = 6000
+    num_tests  = 10000
+    img_width  = 140
+    img_height = 28
+    session_name = 'save/session.mnist/digit_recognizer.ckpt'
+elif svhn_en or mydata_en:
+    num_steps  = 60000
+    num_val    = 5684
+    num_tests  = 13068
+    img_width  = 32
+    img_height = 32
+    session_name = 'save/session.svhn/digit_recognizer.ckpt'
+
+if mydata_en:
+    restore_session = 1 
 
 import pickle
 import random
@@ -52,19 +84,28 @@ if idisplay:
     from PIL import Image
     from IPython.display import display
 
-#%%
-
-# mnist dataset
 if mnist_en:
-    from tensorflow.examples.tutorials.mnist import input_data
-    mnist = input_data.read_data_sets('MNIST_data', one_hot=True) 
-
-#%%
-
-# import SVHN database
-
-if svhn_en:
-    print 'Loading pickled data...'
+    print 'Loading MNIST pickled data...'
+    pickle_file = 'mnist_merged/MNIST.merged.pickle'
+    
+    with open(pickle_file, 'rb') as f:
+        save = pickle.load(f)
+        X_train_samples = save['m_train_samples']
+        y_train_samples = save['m_train_labels']
+        X_val_samples   = save['m_val_samples']
+        y_val_samples   = save['m_val_labels']
+        X_test_samples  = save['m_test_samples'][:4000,]
+        y_test_samples  = save['m_test_labels'][:4000,]
+        del save  
+        print 'Training data shape: ', X_train_samples.shape
+        print 'Training label shape:', y_train_samples.shape
+        print 'Validation data shape:', X_val_samples.shape
+        print 'Validation label shape:', y_val_samples.shape
+        print 'Test data shape:     ', X_test_samples.shape
+        print 'Test label shape:    ', y_test_samples.shape
+        print 'Data successfully loaded !!'
+elif svhn_en:
+    print 'Loading SVHN pickled data...'
     pickle_file = 'svhn_data/SVHN.pickle'
 
     with open(pickle_file, 'rb') as f:
@@ -84,7 +125,23 @@ if svhn_en:
         print 'Test label shape:    ', y_test_samples.shape
         print 'Data successfully loaded !!'
 
-#%%
+elif mydata_en:
+    print 'Loading mydata pickled data...'
+    pickle_file = 'my_data/my_data.pickle'
+
+    with open(pickle_file, 'rb') as f:
+        save = pickle.load(f)
+        # load same data to train/val for placeholders
+        X_train_samples = save['my_data']
+        y_train_samples = save['my_labels']
+        X_val_samples   = save['my_data']
+        y_val_samples   = save['my_labels']
+        X_test_samples  = save['my_data']
+        y_test_samples  = save['my_labels']
+        del save  
+        print 'Test data shape:     ', X_test_samples.shape
+        print 'Test label shape:    ', y_test_samples.shape
+        print 'Data successfully loaded !!'
 
 if idisplay:
     def display_samples(num_samples=1):
@@ -92,63 +149,107 @@ if idisplay:
             # train samples
             idx = random.choice(range(X_train_samples.shape[0]))
             print 'Display sample train image:', idx
-            plt.imshow(X_train_samples[idx].reshape(32,32), interpolation='nearest')
+            plt.imshow(X_train_samples[idx].reshape(img_height,img_width), interpolation='nearest')
             plt.show()
 
             # test samples
             idx = random.choice(range(X_test_samples.shape[0]))
             print 'Display sample test image:', idx
-            plt.imshow(X_test_samples[idx].reshape(32,32), interpolation='nearest')
+            plt.imshow(X_test_samples[idx].reshape(img_height,img_width), interpolation='nearest')
             plt.show()
 
     display_samples()
 
-#%%
+if mnist_en:
 
-# params
-img_size   = 32        # image size 32x32
-in_chan    = 1         # grey scale
-batch_size = 16        # batch size
+    # params
+    in_chan    = 1         # grey scale
+    batch_size = 16        # batch size
 
-# conv1
-c1_patch   = 5         # patch size 5x5
-c1_depth   = 16        # 16 features (out channels)
-c1_padding = 'VALID'   # padding valid
-c1_stride  = [1,1,1,1] # stride 1x1
+    # conv1
+    c1_patch_h = 3         # patch size 3x15
+    c1_patch_w = 15        # patch size 3x15
+    c1_depth   = 16        # 16 features (out channels)
+    c1_padding = 'VALID' # padding valid
+    c1_stride  = [1,1,1,1] # stride 1x1
 
-# maxpool1
-p1_padding = 'VALID'   # padding valid
-p1_patch   = [1,2,2,1] # patch size 2x2
-p1_stride  = [1,2,2,1] # stride 2x2
+    # maxpool1
+    p1_padding = 'VALID'   # padding valid
+    p1_patch   = [1,2,2,1] # patch size 2x2
+    p1_stride  = [1,2,2,1] # stride 2x2
+    
+    # conv2
+    c2_patch_h = 4         # patch size 4x20
+    c2_patch_w = 20        # patch size 4x20
+    c2_depth   = 32        # 32 features (out channels)
+    c2_padding = 'VALID'   # padding valid
+    c2_stride  = [1,1,1,1] # stride 1x1
 
-# conv2
-c2_patch   = 5         # patch size 5x5
-c2_depth   = 32        # 32 features (out channels)
-c2_padding = 'VALID'   # padding valid
-c2_stride  = [1,1,1,1] # stride 1x1
+    # maxpool2
+    p2_padding = 'VALID'   # padding valid
+    p2_patch   = [1,2,2,1] # patch size 2x2
+    p2_stride  = [1,2,2,1] # stride 2x2
 
-# maxpool2
-p2_padding = 'VALID'   # padding valid
-p2_patch   = [1,2,2,1] # patch size 2x2
-p2_stride  = [1,2,2,1] # stride 2x2
+    # conv3
+    c3_patch_h = 5         # patch size 5x22
+    c3_patch_w = 22        # patch size 5x22
+    c3_depth   = 96        # 96 features (out channels)
+    c3_padding = 'VALID'   # padding valid
+    c3_stride  = [1,1,1,1] # stride 1x1
 
-# conv3
-c3_patch   = 5         # patch size 5x5
-c3_depth   = 96        # 96 features (out channels)
-c3_padding = 'VALID'   # padding valid
-c3_stride  = [1,1,1,1] # stride 1x1
+    # fc
+    keep_prob  = 0.9       # dropout rate
+    fc_nodes   = 64        # hidden layer
 
-# fc
-keep_prob  = 0.8       # dropout rate
-fc_nodes   = 64        # hidden layer
+    # output
+    out_digits = 6         # up to 5 digits [1-5]
+    out_labels = 11        # detect 0-9 & none
 
-# output
-out_digits = 6         # up to 5 digits [1-5]
-out_labels = 11        # detect 0-9 & none
+elif svhn_en or mydata_en:
+    
+    # params
+    in_chan    = 1         # grey scale
+    batch_size = 16        # batch size
 
-#%%
+    # conv1
+    c1_patch_h = 5         # patch size 5x5
+    c1_patch_w = 5         # patch size 5x5
+    c1_depth   = 16        # 16 features (out channels)
+    c1_padding = 'VALID'   # padding valid
+    c1_stride  = [1,1,1,1] # stride 1x1
 
-# Graph
+    # maxpool1
+    p1_padding = 'VALID'   # padding valid
+    p1_patch   = [1,2,2,1] # patch size 2x2
+    p1_stride  = [1,2,2,1] # stride 2x2
+    
+    # conv2
+    c2_patch_h = 5         # patch size 5x5
+    c2_patch_w = 5         # patch size 5x5
+    c2_depth   = 32        # 32 features (out channels)
+    c2_padding = 'VALID'   # padding valid
+    c2_stride  = [1,1,1,1] # stride 1x1
+
+    # maxpool2
+    p2_padding = 'VALID'   # padding valid
+    p2_patch   = [1,2,2,1] # patch size 2x2
+    p2_stride  = [1,2,2,1] # stride 2x2
+
+    # conv3
+    c3_patch_h = 5         # patch size 5x5
+    c3_patch_w = 5         # patch size 5x5
+    c3_depth   = 96        # 96 features (out channels)
+    c3_padding = 'VALID'   # padding valid
+    c3_stride  = [1,1,1,1] # stride 1x1
+
+    # fc
+    keep_prob  = 0.8       # dropout rate
+    fc_nodes   = 64        # hidden layer
+
+    # output
+    out_digits = 6         # up to 5 digits [1-5]
+    out_labels = 11        # detect 0-9 & none
+
 
 graph = tf.Graph()
 with graph.as_default():    
@@ -159,7 +260,7 @@ with graph.as_default():
     X_test = tf.constant(X_test_samples)
 
     Y = tf.placeholder(tf.int32, shape=(batch_size, out_digits))
-    X = tf.placeholder(tf.float32, shape=(batch_size, img_size, img_size, in_chan))
+    X = tf.placeholder(tf.float32, shape=(batch_size, img_height, img_width, in_chan))
 
     # weights & biases
 
@@ -171,15 +272,40 @@ with graph.as_default():
         initializer = tf.contrib.layers.xavier_initializer_conv2d()
         return tf.get_variable(shape=shape, name=name, initializer=initializer)
 
+    # pool_out = [(width or height) - patch]/(stride) + 1 
+    # conv_out = [(width or height) - patch + 2 * pad]/(stride) + 1 
+    def calc_out(w, h, p_w, p_h, stride, padding, type='conv'):
+        pad = 1 if padding == 'SAME' else 0
+        if type == 'pool':
+            w_out = (w - p_w)/(stride) + 1
+            h_out = (h - p_h)/(stride) + 1
+        else:
+            w_out = (w - p_w + 2 * pad)/(stride) + 1
+            h_out = (h - p_h + 2 * pad)/(stride) + 1
+
+        return w_out, h_out
+
+    def calc_fc_size(im_w, im_h):
+        (c1_w, c1_h) = calc_out(im_w, im_h, c1_patch_w,  c1_patch_h,  c1_stride[1], c1_padding, type='conv')
+        (p1_w, p1_h) = calc_out(c1_w, c1_h, p1_patch[1], p1_patch[1], p1_stride[1], p1_padding, type='pool')
+        (c2_w, c2_h) = calc_out(p1_w, p1_h, c2_patch_w,  c2_patch_h,  c2_stride[1], c2_padding, type='conv')
+        (p2_w, p2_h) = calc_out(c2_w, c2_h, p2_patch[1], p2_patch[1], p2_stride[1], p2_padding, type='pool')
+        (c3_w, c3_h) = calc_out(p2_w, p2_h, c3_patch_w,  c3_patch_h,  c3_stride[1], c3_padding, type='conv')
+
+        print('Final image size after convolutions: {} x {}'.format(c3_w, c3_h))
+        return c3_w, c3_h
+
+    fc_w, fc_h = calc_fc_size(img_width, img_height)
+
     b_C1 = init_bias(name='b_C1', shape=[c1_depth])
     b_C2 = init_bias(name='b_C2', shape=[c2_depth])
     b_C3 = init_bias(name='b_C3', shape=[c3_depth])
     b_FC = init_bias(name='b_FC', shape=[fc_nodes])
         
-    W_C1 = init_weight(name='W_C1', shape=[c1_patch, c1_patch, in_chan,  c1_depth])
-    W_C2 = init_weight(name='W_C2', shape=[c2_patch, c2_patch, c1_depth, c2_depth])
-    W_C3 = init_weight(name='W_C3', shape=[c3_patch, c3_patch, c2_depth, c3_depth])
-    W_FC = init_weight(name='W_FC', shape=[c3_depth, fc_nodes])
+    W_C1 = init_weight(name='W_C1', shape=[c1_patch_h, c1_patch_w, in_chan,  c1_depth])
+    W_C2 = init_weight(name='W_C2', shape=[c2_patch_h, c2_patch_w, c1_depth, c2_depth])
+    W_C3 = init_weight(name='W_C3', shape=[c3_patch_h, c3_patch_w, c2_depth, c3_depth])
+    W_FC = init_weight(name='W_FC', shape=[fc_w * fc_h * c3_depth, fc_nodes])
         
     b_Y1 = init_bias(name='b_Y1', shape=[out_labels])
     b_Y2 = init_bias(name='b_Y2', shape=[out_labels])
@@ -192,7 +318,7 @@ with graph.as_default():
     W_Y3 = init_weight(name='W_Y3', shape=[fc_nodes, out_labels])
     W_Y4 = init_weight(name='W_Y4', shape=[fc_nodes, out_labels])
     W_Y5 = init_weight(name='W_Y5', shape=[fc_nodes, out_labels])
-
+        
     # CNN Model
     def model(data, keep_prob):
         with tf.name_scope('layer_1'):
@@ -285,7 +411,7 @@ with graph.as_default():
 def accuracy(predictions, labels, debug=0):
     if debug:
         for i in range(labels.shape[0]):
-            print np.argmax(predictions, 2).T[i], labels[i]
+            print 'Test i:', np.argmax(predictions, 2).T[i], labels[i]
 
     return (100.0 * np.sum(np.argmax(predictions, 2).T == labels)
              / predictions.shape[1] / predictions.shape[0])
