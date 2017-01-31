@@ -51,9 +51,9 @@ SVHN MODEL:
 
 debug     = 1
 idisplay  = 0
-svhn_en   = 0
+svhn_en   = 1
 mnist_en  = 0
-mydata_en = 1
+mydata_en = 0
 restore_session = 0
 
 if mnist_en:
