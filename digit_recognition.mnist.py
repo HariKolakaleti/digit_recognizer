@@ -51,8 +51,9 @@ SVHN MODEL:
 
 debug     = 1
 idisplay  = 0
-svhn_en   = 1
+svhn_en   = 0
 mnist_en  = 0
+mydata_en = 1
 restore_session = 0
 
 if mnist_en:
@@ -61,16 +62,17 @@ if mnist_en:
     num_tests  = 10000
     img_width  = 140
     img_height = 28
-    session_name = 'session/digit_recognizer.ckpt'
-    #session_name = 'save/session.mymodel.run2/digit_recognizer.mnist.ckpt'
-elif svhn_en:
+    session_name = 'save/session.mnist/digit_recognizer.ckpt'
+elif svhn_en or mydata_en:
     num_steps  = 60000
     num_val    = 5684
     num_tests  = 13068
     img_width  = 32
     img_height = 32
-    session_name = 'save/session.mymodel.run2/digit_recognizer.svhn.ckpt'
+    session_name = 'save/session.svhn/digit_recognizer.ckpt'
 
+if mydata_en:
+    restore_session = 1 
 
 import pickle
 import random
@@ -123,6 +125,23 @@ elif svhn_en:
         print 'Test label shape:    ', y_test_samples.shape
         print 'Data successfully loaded !!'
 
+elif mydata_en:
+    print 'Loading mydata pickled data...'
+    pickle_file = 'my_data/my_data.pickle'
+
+    with open(pickle_file, 'rb') as f:
+        save = pickle.load(f)
+        # load same data to train/val for placeholders
+        X_train_samples = save['my_data']
+        y_train_samples = save['my_labels']
+        X_val_samples   = save['my_data']
+        y_val_samples   = save['my_labels']
+        X_test_samples  = save['my_data']
+        y_test_samples  = save['my_labels']
+        del save  
+        print 'Test data shape:     ', X_test_samples.shape
+        print 'Test label shape:    ', y_test_samples.shape
+        print 'Data successfully loaded !!'
 
 if idisplay:
     def display_samples(num_samples=1):
@@ -186,7 +205,7 @@ if mnist_en:
     out_digits = 6         # up to 5 digits [1-5]
     out_labels = 11        # detect 0-9 & none
 
-elif svhn_en:
+elif svhn_en or mydata_en:
     
     # params
     in_chan    = 1         # grey scale
